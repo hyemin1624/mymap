@@ -13,7 +13,7 @@
 
     <!-- 상단 헤더 -->
     <header class="bg-white shadow px-6 py-4 flex items-center justify-between z-10">
-        <h1 class="text-xl font-bold text-gray-800">✨ 전국 애니메이션 굿즈샵 & 성지 지도</h1>
+        <h1 class="text-xl font-bold text-gray-800">✨ 굿즈/피규어샵 & 팝업스토어 지도</h1>
         <span id="status-message" class="text-sm text-gray-500">위치 권한을 확인하는 중...</span>
     </header>
 
@@ -23,31 +23,31 @@
         <!-- 왼쪽: 탭 버튼, 검색창 및 결과 리스트 -->
         <section class="w-full md:w-96 bg-white border-r border-gray-200 flex flex-col z-10">
             
-            <!-- 탭 버튼 영역 (실제 상호명/브랜드 중심 검색) -->
+            <!-- 탭 버튼 영역 (기획서 3번 반영) -->
             <div class="grid grid-cols-2 gap-2 p-4 border-b border-gray-200 bg-gray-50">
                 <button 
                     id="tab-1" 
-                    onclick="switchTab('애니메이트', 'tab-1')"
+                    onclick="switchTab('피규어 굿즈', 'tab-1')"
                     class="py-2 px-3 rounded-lg text-sm font-semibold bg-blue-600 text-white transition shadow-sm"
                 >
                     🛍️ 굿즈/피규어샵
                 </button>
                 <button 
                     id="tab-2" 
-                    onclick="switchTab('애니플러스', 'tab-2')"
+                    onclick="switchTab('팝업스토어', 'tab-2')"
                     class="py-2 px-3 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
                 >
                     🎪 팝업스토어
                 </button>
             </div>
 
-            <!-- 직접 검색 입력폼 (원하는 상호명 직접 입력 가능) -->
+            <!-- 직접 검색 입력폼 -->
             <div class="p-4 border-b border-gray-200">
                 <form id="search-form" class="flex gap-2">
                     <input 
                         type="text" 
                         id="search-input" 
-                        placeholder="상호명 입력 (예: 라신반, 제이굿즈, 국전)" 
+                        placeholder="직접 검색 (예: 홍대 굿즈샵, 애니메이트)" 
                         class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     >
                     <button 
@@ -62,12 +62,12 @@
             <!-- 검색 결과 리스트 -->
             <div id="place-list" class="flex-1 overflow-y-auto divide-y divide-gray-100">
                 <div class="p-6 text-center text-gray-400 text-sm">
-                    매장 정보를 불러오는 중입니다...
+                    현재 위치 주변의 매장을 검색하는 중...
                 </div>
             </div>
         </section>
 
-        <!-- 오른쪽: 지도 영역 및 로드뷰 오버레이 -->
+        <!-- 오른쪽: 지도 영역 및 로드뷰 버튼 -->
         <section class="flex-1 relative">
             <div id="map" class="w-full h-full"></div>
 
@@ -76,7 +76,7 @@
                 onclick="openRoadview()" 
                 class="absolute top-4 right-4 bg-white hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg shadow-md border border-gray-300 text-sm z-10 transition"
             >
-                👀 현재 중심 로드뷰 보기
+                👀 지도 중심 로드뷰 보기
             </button>
         </section>
     </main>
@@ -90,29 +90,29 @@
         let markers = [];
         let currentLat = 37.566826; // 기본 위도 (서울 시청)
         let currentLng = 126.978656; // 기본 경도 (서울 시청)
-        let currentKeyword = '애니메이트'; // 초기 기본 상호명 키워드
+        let currentKeyword = '피규어 굿즈'; // 탭 1 기본 검색어
 
-        // 카카오맵 SDK 로드 완료 후 실행
+        // 카카오맵 SDK 로드 후 실행
         kakao.maps.load(function() {
             const statusMessage = document.getElementById('status-message');
 
-            // 브라우저 위치 권한 확인 및 현재 위치 획득
+            // 브라우저 GPS 위치 요청
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     function(position) {
                         currentLat = position.coords.latitude;
                         currentLng = position.coords.longitude;
-                        statusMessage.textContent = "현재 위치를 성공적으로 불러왔습니다.";
+                        statusMessage.textContent = "현재 위치 기준 지도 표시 중";
                         initMap(currentLat, currentLng);
                     },
                     function(error) {
-                        console.warn("위치 권한 거부 또는 실패. 기본 위치로 설정합니다.", error);
+                        console.warn("위치 권한 거부됨. 기본 위치(서울 시청) 사용", error);
                         statusMessage.textContent = "위치 권한 거부됨 (기본 위치: 서울 시청)";
                         initMap(currentLat, currentLng);
                     }
                 );
             } else {
-                statusMessage.textContent = "위치 정보를 지원하지 않는 브라우저입니다.";
+                statusMessage.textContent = "위치 정보 미지원 브라우저";
                 initMap(currentLat, currentLng);
             }
         });
@@ -121,77 +121,76 @@
         function initMap(lat, lng) {
             const container = document.getElementById('map');
             const options = {
-                center: new kakao.maps.LatLng(lat, lng), // 중심 좌표
-                level: 5 // 확대 레벨 (조건: 5)
+                center: new kakao.maps.LatLng(lat, lng),
+                level: 5 // 확대 레벨 5
             };
 
-            // 지도 생성
             map = new kakao.maps.Map(container, options);
-
-            // 장소 검색 객체 생성 (전국 단위 검색을 위해 map 객체 없이 생성하여 지역 제한 해제)
             ps = new kakao.maps.services.Places();
-
-            // 인포윈도우 생성 (마커 클릭 시 상세 정보 표출)
             infowindow = new kakao.maps.InfoWindow({ zIndex: 1 });
 
-            // 직접 검색 폼 이벤트 리스너 연결
+            // 직접 검색 이벤트
             const searchForm = document.getElementById('search-form');
             searchForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const keywordInput = document.getElementById('search-input');
                 const keyword = keywordInput.value.trim();
                 if (keyword) {
-                    currentKeyword = keyword;
-                    searchPlacesByKeyword(keyword);
+                    searchPlaces(keyword, false); // 직접 검색은 전국 단위 가능
                 } else {
-                    alert('상호명을 입력해주세요!');
+                    alert('검색어를 입력해주세요!');
                 }
             });
 
-            // 초기 실행 시 전국 단위로 주요 굿즈샵 상호명 검색 실행
-            searchPlacesByKeyword(currentKeyword);
+            // 페이지 처음 로드 시 현재 위치 중심으로 탭1(피규어 굿즈) 검색
+            searchPlaces(currentKeyword, true);
         }
 
-        // 탭 전환 함수 (상호명 변경)
+        // 탭 전환 함수
         function switchTab(keyword, activeTabId) {
             currentKeyword = keyword;
 
-            // 모든 탭 버튼 스타일 초기화 (비활성화 상태)
+            // 탭 스타일 변경
             document.getElementById('tab-1').className = "py-2 px-3 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition";
             document.getElementById('tab-2').className = "py-2 px-3 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition";
-
-            // 선택한 탭 버튼만 활성화 스타일 적용
             document.getElementById(activeTabId).className = "py-2 px-3 rounded-lg text-sm font-semibold bg-blue-600 text-white transition shadow-sm";
 
-            // 직접 검색창 비우기
             document.getElementById('search-input').value = '';
 
-            // 해당 상호명으로 검색 수행
-            searchPlacesByKeyword(keyword);
+            // 탭 클릭 시에는 '내 현재 위치 주변' 중심으로 검색
+            searchPlaces(keyword, true);
         }
 
-        // 상호명 키워드 기반 전국 장소 검색 함수 (radius 제한 해제)
-        function searchPlacesByKeyword(keyword) {
-            ps.keywordSearch(keyword, placesSearchCB);
+        // 장소 검색 함수 (useLocation이 true면 내 위치 주변 10km 검색)
+        function searchPlaces(keyword, useLocation) {
+            let options = {};
+            if (useLocation) {
+                options = {
+                    location: new kakao.maps.LatLng(currentLat, currentLng),
+                    radius: 10000 // 내 위치 주변 10km
+                };
+            }
+
+            ps.keywordSearch(keyword, placesSearchCB, options);
         }
 
-        // 키워드 검색 완료 콜백 함수
+        // 검색 콜백 함수
         function placesSearchCB(data, status, pagination) {
             if (status === kakao.maps.services.Status.OK) {
                 displayPlaces(data);
             } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
-                document.getElementById('place-list').innerHTML = '<div class="p-6 text-center text-gray-400 text-sm">해당 상호명에 대한 검색 결과가 존재하지 않습니다.</div>';
+                document.getElementById('place-list').innerHTML = '<div class="p-6 text-center text-gray-400 text-sm">주변에 관련 매장이 없습니다. 직접 검색창에 "홍대 굿즈샵" 등을 입력해 보세요!</div>';
                 removeMarkers();
             } else if (status === kakao.maps.services.Status.ERROR) {
                 alert('검색 중 오류가 발생했습니다.');
             }
         }
 
-        // 검색 결과 목록과 마커를 화면에 표시하는 함수
+        // 검색 결과 및 마커 표시
         function displayPlaces(places) {
             const listEl = document.getElementById('place-list');
-            listEl.innerHTML = ''; // 이전 리스트 초기화
-            removeMarkers(); // 이전 마커 초기화
+            listEl.innerHTML = '';
+            removeMarkers();
 
             const bounds = new kakao.maps.LatLngBounds();
 
@@ -202,7 +201,7 @@
 
                 bounds.extend(new kakao.maps.LatLng(place.y, place.x));
 
-                // 마커 및 리스트 클릭 이벤트 등록 (상세 팝업 연결)
+                // 클릭시 인포윈도우 팝업
                 (function(marker, placeData) {
                     kakao.maps.event.addListener(marker, 'click', function() {
                         displayInfowindow(marker, placeData);
@@ -217,22 +216,19 @@
                 listEl.appendChild(itemEl);
             }
 
-            // 지도 범위를 검색 결과에 맞게 재설정
             map.setBounds(bounds);
         }
 
-        // 리스트 아이템 HTML 요소 생성 함수
+        // 목록 아이템 생성
         function getListItem(index, place) {
             const el = document.createElement('div');
             el.className = 'p-4 hover:bg-gray-50 cursor-pointer transition border-b border-gray-100';
             
             let html = `<h5 class="font-bold text-gray-800 text-sm">${place.place_name}</h5>`;
-
             if (place.road_address_name) {
                 html += `<p class="text-xs text-gray-600 mt-1">도로명: ${place.road_address_name}</p>`;
             }
             html += `<p class="text-xs text-gray-400 mt-0.5">지번: ${place.address_name}</p>`;
-            
             if (place.phone) {
                 html += `<p class="text-xs text-blue-600 mt-1">📞 ${place.phone}</p>`;
             }
@@ -241,7 +237,7 @@
             return el;
         }
 
-        // 지도에 마커를 생성하고 추가하는 함수
+        // 마커 생성
         function addMarker(position, idx) {
             const imageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_number_blue.png';
             const imageSize = new kakao.maps.Size(36, 37);
@@ -262,7 +258,7 @@
             return marker;
         }
 
-        // 지도에 남아있는 마커들을 모두 제거하는 함수
+        // 마커 지우기
         function removeMarkers() {
             for (let i = 0; i < markers.length; i++) {
                 markers[i].setMap(null);
@@ -270,7 +266,7 @@
             markers = [];
         }
 
-        // 마커 클릭 시 상세 정보 팝업(인포윈도우) 표시 함수
+        // 마커 클릭 시 팝업 (이름, 주소, 전화번호, 카카오맵 상세보기)
         function displayInfowindow(marker, place) {
             const content = `
                 <div style="padding:10px;font-size:12px;width:200px;z-index:1;">
@@ -284,7 +280,7 @@
             infowindow.open(map, marker);
         }
 
-        // 로드뷰 연동 함수 (현재 지도 중심 좌표 기준)
+        // 로드뷰 버튼
         function openRoadview() {
             const center = map.getCenter();
             const rvUrl = `https://map.kakao.com/?roadview=true&y=${center.getLat()}&x=${center.getLng()}`;
