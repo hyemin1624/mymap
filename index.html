@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>애니메이션 굿즈샵 및 캐릭터 팝업스토어 안내 지도</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 카카오맵 JavaScript SDK 로드 -->
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=7dc4b6e17f706b35e52af0bb2e9c56e5&libraries=services&autoload=false"></script>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white shadow px-6 py-4 flex items-center justify-between z-10">
+        <h1 class="text-xl font-bold text-gray-800">✨ 전국 애니메이션 굿즈 & 팝업 성지 지도</h1>
+        <span id="status-message" class="text-sm text-gray-500">지역별 굿즈샵 리스트 로드 완료</span>
+    </header>
+
+    <!-- 메인 컨테이너 (2분할 레이아웃) -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- 왼쪽: 탭 버튼 및 지역별로 좌르륵 뜨는 리스트 영역 -->
+        <section class="w-full md:w-96 bg-white border-r border-gray-200 flex flex-col z-10">
+            
+            <!-- 탭 버튼 영역 -->
+            <div class="grid grid-cols-2 gap-2 p-4 border-b border-gray-200 bg-gray-50">
+                <button 
+                    id="tab-1" 
+                    onclick="switchTab('goods')"
+                    class="py-2 px-3 rounded-lg text-sm font-semibold bg-blue-600 text-white transition shadow-sm"
+                >
+                    🛍️ 굿즈/피규어샵 성지
+                </button>
+                <button 
+                    id="tab-2" 
+                    onclick="switchTab('popup')"
+                    class="py-2 px-3 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+                >
+                    🎪 팝업스토어/콜라보
+                </button>
+            </div>
+
+            <!-- 검색 결과 리스트 (지역별 섹션으로 좌르륵 나열됨) -->
+            <div id="place-list" class="flex-1 overflow-y-auto divide-y divide-gray-100">
+                <!-- 자바스크립트에 의해 리스트가 여기에 채워집니다 -->
+            </div>
+        </section>
+
+        <!-- 오른쪽: 지도 영역 -->
+        <section class="flex-1 relative">
+            <div id="map" class="w-full h-full"></div>
+
+            <!-- 로드뷰 보기 버튼 -->
+            <button 
+                onclick="openRoadview()" 
+                class="absolute top-4 right-4 bg-white hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg shadow-md border border-gray-300 text-sm z-10 transition"
+            >
+                👀 지도 중심 로드뷰 보기
+            </button>
+        </section>
+    </main>
+
+    <!-- JavaScript 로직 -->
+    <script>
+        // 1. 굿즈/피규어샵 성지 리스트 (서울 15개 이상 + 지방 주요 성지 포함)
+        const goodsShops = [
+            // --- [서울 지역] ---
+            {
+                region: "📍 서울 (홍대/신촌)",
+                place_name: "애니메이트 홍대점",
+                road_address_name: "서울 마포구 양화로 188 AK& 홍대 5층",
+                address_name: "서울 마포구 동교동 159-8",
+                phone: "02-332-0315",
+                y: 37.5563, x: 126.9231,
+                place_url: "https://map.kakao.com/?q=애니메이트 홍대점"
+            },
+            {
+                region: "📍 서울 (홍대/신촌)",
+                place_name: "홍대 라신반",
+                road_address_name: "서울 마포구 와우산로21길 29",
+                address_name: "서울 마포구 서교동 364-2",
+                phone: "02-332-1234",
+                y: 37.5521, x: 126.9225,
+                place_url: "https://map.kakao.com/?q=홍대 라신반"
+            },
+            {
+                region: "📍 서울 (홍대/신촌)",
+                place_name: "홍대 피규어프레소",
+                road_address_name: "서울 마포구 와우산로29길 48",
+                address_name: "서울 마포구 서교동 332-14",
+                phone: "02-332-8765",
+                y: 37.5552, x: 126.9248,
+                place_url: "https://map.kakao.com/?q=홍대 피규어프레소"
+            },
+            {
+                region: "📍 서울 (홍대/신촌)",
+                place_name: "안서당",
+                road_address_name: "서울 마포구 와우산로 salariés",
+                address_name: "서울 마포구 서교동 335-18",
+                phone: "02-336-7456",
+                y: 37.5539, x: 126.9252,
+                place_url: "https://map.kakao.com/?q=안서당"
+            },
+            {
+                region: "📍 서울 (홍대/신촌)",
+                place_name: "제이굿즈 홍대점",
+                road_address_name: "서울 마포구 잔다리로 6",
+                address_name: "서울 마포구 서교동 395-156",
+                phone: "02-338-9999",
+                y: 37.5512, x: 126.9210,
+                place_url: "https://map.kakao.com/?q=제이굿즈 홍대점"
+            },
+            {
+                region: "📍 서울 (홍대/신촌)",
+                place_name: "토이저러스 홍대점 (캐릭터존)",
+                road_address_name: "서울 마포구 양화로 188 AK& 홍대",
+                address_name: "서울 마포구 동교동 159-8",
+                phone: "02-789-2500",
+                y: 37.5563, x: 126.9231,
+                place_url: "https://map.kakao.com/?q=토이저러스 홍대점"
+            },
+            {
+                region: "📍 서울 (홍대/신촌)",
+                place_name: "가챠샵 홍대점",
+                road_address_name: "서울 마포구 와우산로29길 54",
+                address_name: "서울 마포구 서교동 332-9",
+                phone: "02-322-0000",
+                y: 37.5558, x: 126.9250,
+                place_url: "https://map.kakao.com/?q=가챠샵 홍대점"
+            },
+            {
+                region: "📍 서울 (홍대/신촌)",
+                place_name: "키덜트팩토리",
+                road_address_name: "서울 마포구 와우산로 111",
+                address_name: "서울 마포구 서교동 333-1",
+                phone: "02-333-1111",
+                y: 37.5545, x: 126.9238,
+                place_url: "https://map.kakao.com/?q=키덜트팩토리"
+            },
+            {
+                region: "📍 서울 (남부터미널/국전)",
+                place_name: "국제전자센터 9층 하비파크",
+                road_address_name: "서울 서초구 효령로 304 국제전자센터 9층",
+                address_name: "서울 서초구 서초동 1445-3",
+                phone: "02-3465-1114",
+                y: 37.4845, x: 127.0163,
+                place_url: "https://map.kakao.com/?q=국제전자센터 하비파크"
+            },
+            {
+                region: "📍 서울 (남부터미널/국전)",
+                place_name: "국제전자센터 논노21",
+                road_address_name: "서울 서초구 효령로 304 국제전자센터 9층",
+                address_name: "서울 서초구 서초동 1445-3",
+                phone: "02-3465-2121",
+                y: 37.4845, x: 127.0163,
+                place_url: "https://map.kakao.com/?q=국제전자센터 논노21"
+            },
+            {
+                region: "📍 서울 (남부터미널/국전)",
+                place_name: "국제전자센터 피규어프레소 국전점",
+                road_address_name: "서울 서초구 효령로 304 국제전자센터 9층",
+                address_name: "서울 서초구 서초동 1445-3",
+                phone: "02-3465-3333",
+                y: 37.4845, x: 127.0163,
+                place_url: "https://map.kakao.com/?q=피규어프레소 국전"
+            },
+            {
+                region: "📍 서울 (남부터미널/국전)",
+                place_name: "국제전자센터 쿄우마샵",
+                road_address_name: "서울 서초구 효령로 304 국제전자센터 9층",
+                address_name: "서울 서초구 서초동 1445-3",
+                phone: "02-3465-4444",
+                y: 37.4845, x: 127.0163,
+                place_url: "https://map.kakao.com/?q=쿄우마샵 국전"
+            },
+            {
+                region: "📍 서울 (남부터미널/국전)",
+                place_name: "국제전자센터 덴덴샵",
+                road_address_name: "서울 서초구 효령로 304 국제전자센터 9층",
+                address_name: "서울 서초구 서초동 1445-3",
+                phone: "02-3465-5555",
+                y: 37.4845, x: 127.0163,
+                place_url: "https://map.kakao.com/?q=덴덴샵 국전"
+            },
+            {
+                region: "📍 서울 (기타 지역)",
+                place_name: "건담베이스 용산아이파크몰점",
+                road_address_name: "서울 용산구 한강대로23길 55 아이파크몰 리빙파크 6층",
+                address_name: "서울 용산구 한강로3가 40-999",
+                phone: "02-2012-3781",
+                y: 37.5298, x: 126.9648,
+                place_url: "https://map.kakao.com/?q=건담베이스 용산아이파크몰점"
+            },
+            {
+                region: "📍 서울 (기타 지역)",
+                place_name: "팝몬 홍대점",
+                road_address_name: "서울 마포구 잔다리로2길 19",
+                address_name: "서울 마포구 서교동 368-22",
+                phone: "02-325-1010",
+                y: 37.5501, x: 126.9205,
+                place_url: "https://map.kakao.com/?q=팝몬 홍대점"
+            },
+            {
+                region: "📍 서울 (기타 지역)",
+                place_name: "코믹존 (신림)",
+                road_address_name: "서울 관악구 신림로 340",
+                address_name: "서울 관악구 신림동 1422-5",
+                phone: "02-876-0000",
+                y: 37.4842, x: 126.9295,
+                place_url: "https://map.kakao.com/?q=신림 코믹존"
+            },
+            // --- [대전 지역] ---
+            {
+                region: "📍 대전",
+                place_name: "제이굿즈 대전점",
+                road_address_name: "대전 중구 중앙로 164",
+                address_name: "대전 중구 은행동 145-1",
+                phone: "042-222-1111",
+                y: 36.3278, x: 127.4275,
+                place_url: "https://map.kakao.com/?q=제이굿즈 대전점"
+            },
+            {
+                region: "📍 대전",
+                place_name: "애니세카이",
+                road_address_name: "대전 중구 중앙로156번길 28",
+                address_name: "대전 중구 은행동 52-4",
+                phone: "042-254-0000",
+                y: 36.3285, x: 127.4268,
+                place_url: "https://map.kakao.com/?q=애니세카이 대전"
+            },
+            // --- [부산 지역] ---
+            {
+                region: "📍 부산",
+                place_name: "애니메이트 부산점",
+                road_address_name: "부산 부산진구 중앙대로 672 삼정타워 9층",
+                address_name: "부산 부산진구 부전동 227-2",
+                phone: "051-528-1111",
+                y: 35.1558, x: 126.0601,
+                place_url: "https://map.kakao.com/?q=애니메이트 부산점"
+            },
+            {
+                region: "📍 부산",
+                place_name: "제이굿즈 부산점",
+                road_address_name: "부산 부산진구 동천로 69",
+                address_name: "부산 부산진구 부전동 168-40",
+                phone: "051-805-2222",
+                y: 35.1565, x: 126.0645,
+                place_url: "https://map.kakao.com/?q=제이굿즈 부산점"
+            }
+        ];
+
+        // 2. 팝업스토어/콜라보 카페 리스트
+        const popupShops = [
+            {
+                region: "📍 서울",
+                place_name: "애니플러스샵 홍대점",
+                road_address_name: "서울 마포구 양화로 188 AK& 홍대 4층",
+                address_name: "서울 마포구 동교동 159-8",
+                phone: "02-322-1002",
+                y: 37.5563, x: 126.9231,
+                place_url: "https://map.kakao.com/?q=애니플러스샵 홍대점"
+            },
+            {
+                region: "📍 대전",
+                place_name: "애니플러스샵 대전 중앙로점",
+                road_address_name: "대전 중구 중앙로 121 메가박스 4층",
+                address_name: "대전 중구 은행동 33-1",
+                phone: "042-223-0101",
+                y: 36.3291, x: 127.4281,
+                place_url: "https://map.kakao.com/?q=애니플러스 대전점"
+            },
+            {
+                region: "📍 부산",
+                place_name: "애니플러스샵 부산서면점",
+                road_address_name: "부산 부산진구 중앙대로 672 삼정타워 9층",
+                address_name: "부산 부산진구 부전동 227-2",
+                phone: "051-802-0101",
+                y: 35.1558, x: 126.0601,
+                place_url: "https://map.kakao.com/?q=애니플러스 부산서면점"
+            }
+        ];
+
+        let map = null;
+        let infowindow = null;
+        let markers = [];
+
+        // 카카오맵 SDK 로드 후 실행
+        kakao.maps.load(function() {
+            initMap();
+        });
+
+        // 지도 초기화 함수
+        function initMap() {
+            const container = document.getElementById('map');
+            const options = {
+                center: new kakao.maps.LatLng(37.5563, 126.9231), // 홍대입구역 중심
+                level: 5
+            };
+
+            map = new kakao.maps.Map(container, options);
+            infowindow = new kakao.maps.InfoWindow({ zIndex: 1 });
+
+            // 시작할 때 탭1(굿즈샵 성지) 리스트 출력
+            displayPlaces(goodsShops);
+        }
+
+        // 탭 전환 함수
+        function switchTab(type) {
+            if (type === 'goods') {
+                document.getElementById('tab-1').className = "py-2 px-3 rounded-lg text-sm font-semibold bg-blue-600 text-white transition shadow-sm";
+                document.getElementById('tab-2').className = "py-2 px-3 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition";
+                displayPlaces(goodsShops);
+            } else {
+                document.getElementById('tab-1').className = "py-2 px-3 rounded-lg text-sm font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition";
+                document.getElementById('tab-2').className = "py-2 px-3 rounded-lg text-sm font-semibold bg-blue-600 text-white transition shadow-sm";
+                displayPlaces(popupShops);
+            }
+        }
+
+        // 리스트와 마커를 지역별 섹션으로 나누어 뿌려주는 함수
+        function displayPlaces(places) {
+            const listEl = document.getElementById('place-list');
+            listEl.innerHTML = '';
+            removeMarkers(); // 기존 마커 지우기
+
+            const bounds = new kakao.maps.LatLngBounds();
+
+            // 지역별로 데이터 그룹화
+            const grouped = {};
+            for (let i = 0; i < places.length; i++) {
+                const p = places[i];
+                if (!grouped[p.region]) {
+                    grouped[p.region] = [];
+                }
+                grouped[p.region].push(p);
+            }
+
+            // 지역 섹션별로 HTML 생성
+            for (let regionName in grouped) {
+                // 지역 헤더 배너 생성
+                const regionHeader = document.createElement('div');
+                regionHeader.className = 'bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600 border-b border-gray-200';
+                regionHeader.textContent = regionName;
+                listEl.appendChild(regionHeader);
+
+                // 해당 지역의 장소들 추가
+                const regionPlaces = grouped[regionName];
+                for (let j = 0; j < regionPlaces.length; j++) {
+                    const place = regionPlaces[j];
+                    const position = new kakao.maps.LatLng(place.y, place.x);
+                    
+                    // [숫자 마커 제거] 기본 일반 마커 생성
+                    const marker = new kakao.maps.Marker({
+                        position: position,
+                        map: map
+                    });
+                    markers.push(marker);
+
+                    // 리스트 아이템 HTML 생성
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'p-4 hover:bg-gray-50 cursor-pointer transition border-b border-gray-100';
+                    itemEl.innerHTML = `
+                        <h5 class="font-bold text-gray-800 text-sm">${place.place_name}</h5>
+                        <p class="text-xs text-gray-600 mt-1">도로명: ${place.road_address_name}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">지번: ${place.address_name}</p>
+                        ${place.phone ? `<p class="text-xs text-blue-600 mt-1">📞 ${place.phone}</p>` : ''}
+                    `;
+
+                    bounds.extend(position);
+
+                    // 마커 및 리스트 클릭 이벤트 (상세 팝업 연결)
+                    (function(marker, placeData) {
+                        kakao.maps.event.addListener(marker, 'click', function() {
+                            displayInfowindow(marker, placeData);
+                        });
+
+                        itemEl.addEventListener('click', function() {
+                            map.setCenter(marker.getPosition());
+                            displayInfowindow(marker, placeData);
+                        });
+                    })(marker, place);
+
+                    listEl.appendChild(itemEl);
+                }
+            }
+
+            // 지도 범위 맞추기
+            map.setBounds(bounds);
+        }
+
+        // 지도 위 마커 모두 제거
+        function removeMarkers() {
+            for (let i = 0; i < markers.length; i++) {
+                markers[i].setMap(null);
+            }
+            markers = [];
+        }
+
+        // 마커 클릭 시 인포윈도우 팝업 표시
+        function displayInfowindow(marker, place) {
+            const content = `
+                <div style="padding:10px;font-size:12px;width:200px;z-index:1;">
+                    <strong style="font-size:14px;color:#1d4ed8;">${place.place_name}</strong><br>
+                    <span style="color:#4b5563;display:block;margin-top:4px;">${place.road_address_name}</span>
+                    ${place.phone ? `<span style="color:#2563eb;display:block;margin-top:2px;">📞 ${place.phone}</span>` : ''}
+                    <a href="${place.place_url}" target="_blank" style="color:#059669;display:block;margin-top:4px;text-decoration:underline;">카카오맵 상세보기</a>
+                </div>
+            `;
+            infowindow.setContent(content);
+            infowindow.open(map, marker);
+        }
+
+        // 로드뷰 연동 함수
+        function openRoadview() {
+            const center = map.getCenter();
+            const rvUrl = `https://map.kakao.com/?roadview=true&y=${center.getLat()}&x=${center.getLng()}`;
+            window.open(rvUrl, '_blank');
+        }
+    </script>
+</body>
+</html>
