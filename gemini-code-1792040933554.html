@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전국 애니메이션 굿즈샵 & 피규어 성지 지도</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 카카오맵 JavaScript SDK 로드 -->
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=7dc4b6e17f706b35e52af0bb2e9c56e5&libraries=services&autoload=false"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen flex flex-col overflow-hidden font-sans">
+
+    <!-- 상단 세련된 헤더 -->
+    <header class="bg-slate-900 text-white shadow-md px-6 py-3.5 flex items-center justify-between z-10">
+        <div class="flex items-center gap-2">
+            <span class="text-2xl">✨</span>
+            <h1 class="text-lg font-extrabold tracking-tight">전국 애니메이션 굿즈샵 & 피규어 성지 지도</h1>
+        </div>
+        <span id="status-message" class="text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">지역별 굿즈샵 탐색 준비 완료</span>
+    </header>
+
+    <!-- 메인 컨테이너 (2분할 레이아웃) -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- 왼쪽: 사이드바 (검색창, 지역 탭, 리스트) -->
+        <section class="w-full md:w-96 bg-white border-r border-slate-200 flex flex-col z-10 shadow-sm">
+            
+            <!-- 지역별 빠른 탭 버튼 (누르면 해당 지역 주변의 굿즈샵을 자동 탐색) -->
+            <div class="grid grid-cols-4 gap-1.5 p-3 border-b border-slate-100 bg-slate-50">
+                <button 
+                    id="tab-all" 
+                    onclick="searchRegionPlaces('대한민국 굿즈샵', 'all')"
+                    class="py-2 px-1 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm transition transform active:scale-95"
+                >
+                    🌐 전체
+                </button>
+                <button 
+                    id="tab-seoul" 
+                    onclick="searchRegionPlaces('홍대 굿즈샵', 'seoul')"
+                    class="py-2 px-1 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition transform active:scale-95"
+                >
+                    🗼 서울
+                </button>
+                <button 
+                    id="tab-daejeon" 
+                    onclick="searchRegionPlaces('대전 굿즈샵', 'daejeon')"
+                    class="py-2 px-1 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition transform active:scale-95"
+                >
+                    🏛️ 대전
+                </button>
+                <button 
+                    id="tab-busan" 
+                    onclick="searchRegionPlaces('부산 굿즈샵', 'busan')"
+                    class="py-2 px-1 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition transform active:scale-95"
+                >
+                    🌊 부산
+                </button>
+            </div>
+
+            <!-- 직접 검색창 (원하는 지역이나 상호명 입력 시 주변 매장 검색) -->
+            <div class="p-3 border-b border-slate-100 bg-white">
+                <form id="search-form" class="flex gap-2">
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        placeholder="지역 또는 샵 검색 (예: 홍대 피규어, 부산 애니메이트)" 
+                        class="flex-1 px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-medium text-slate-700"
+                    >
+                    <button 
+                        type="submit" 
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm"
+                    >
+                        검색
+                    </button>
+                </form>
+            </div>
+
+            <!-- 매장 리스트 영역 -->
+            <div id="place-list" class="flex-1 overflow-y-auto divide-y divide-slate-100">
+                <div class="p-8 text-center text-slate-400 text-sm">
+                    매장 정보를 불러오는 중입니다...
+                </div>
+            </div>
+        </section>
+
+        <!-- 오른쪽: 지도 영역 -->
+        <section class="flex-1 relative">
+            <div id="map" class="w-full h-full"></div>
+
+            <!-- 로드뷰 보기 버튼 -->
+            <button 
+                onclick="openRoadview()" 
+                class="absolute top-4 right-4 bg-white/90 backdrop-blur hover:bg-white text-slate-700 font-bold px-4 py-2.5 rounded-xl shadow-lg border border-slate-200 text-xs transition flex items-center gap-1.5 z-10"
+            >
+                <span>👀</span> 현재 중심 로드뷰 보기
+            </button>
+        </section>
+    </main>
+
+    <!-- JavaScript 로직 -->
+    <script>
+        let map = null;
+        let ps = null;
+        let infowindow = null;
+        let markers = [];
+
+        kakao.maps.load(function() {
+            initMap();
+        });
+
+        function initMap() {
+            const container = document.getElementById('map');
+            const options = {
+                center: new kakao.maps.LatLng(37.5563, 126.9231), // 홍대입구역 중심
+                level: 5
+            };
+
+            map = new kakao.maps.Map(container, options);
+            ps = new kakao.maps.services.Places();
+            infowindow = new kakao.maps.InfoWindow({ zIndex: 1 });
+
+            // 검색 폼 이벤트 연결
+            const searchForm = document.getElementById('search-form');
+            searchForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const query = document.getElementById('search-input').value.trim();
+                if (query) {
+                    searchRegionPlaces(query, 'custom');
+                } else {
+                    alert('검색어를 입력해주세요!');
+                }
+            });
+
+            // 초기 실행 시 서울(홍대 굿즈샵) 주변 매장 자동 검색
+            searchRegionPlaces('홍대 굿즈샵', 'seoul');
+        }
+
+        // 지역 탭 클릭 또는 직접 검색 시 해당 키워드로 장소 검색 수행
+        function searchRegionPlaces(keyword, regionKey) {
+            if (regionKey !== 'custom') {
+                // 탭 버튼 스타일 토글
+                ['all', 'seoul', 'daejeon', 'busan'].forEach(key => {
+                    const btn = document.getElementById(`tab-${key}`);
+                    if (btn) {
+                        btn.className = "py-2 px-1 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition transform active:scale-95";
+                    }
+                });
+                const activeBtn = document.getElementById(`tab-${regionKey}`);
+                if (activeBtn) {
+                    activeBtn.className = "py-2 px-1 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm transition transform active:scale-95";
+                }
+                document.getElementById('search-input').value = '';
+            }
+
+            // 카카오맵 키워드 검색 (해당 키워드가 포함된 주변 장소들을 카카오 DB에서 광범위하게 탐색)
+            ps.keywordSearch(keyword, placesSearchCB);
+        }
+
+        // 검색 결과 처리 콜백 함수
+        function placesSearchCB(data, status, pagination) {
+            const statusMsg = document.getElementById('status-message');
+            if (status === kakao.maps.services.Status.OK) {
+                // 쇼핑몰이나 관련 없는 유령 업체/사무실 필터링
+                const filtered = data.filter(place => {
+                    const name = place.place_name;
+                    const excludeWords = ['커머스', '물류', '아이앤씨', '홀딩스', '제조'];
+                    return !excludeWords.some(word => name.includes(word));
+                });
+
+                displayPlaces(filtered);
+                statusMsg.textContent = `✨ ${filtered.length}개의 매장을 찾았습니다`;
+            } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+                document.getElementById('place-list').innerHTML = '<div class="p-8 text-center text-slate-400 text-sm">검색된 매장이 없습니다. 다른 지역명이나 키워드로 검색해보세요!</div>';
+                removeMarkers();
+                statusMsg.textContent = "검색 결과 없음";
+            } else {
+                alert('검색 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 검색된 매장들을 리스트와 지도 마커(카카오 기본 마커)로 렌더링
+        function displayPlaces(places) {
+            const listEl = document.getElementById('place-list');
+            listEl.innerHTML = '';
+            removeMarkers();
+
+            const bounds = new kakao.maps.LatLngBounds();
+
+            places.forEach(place => {
+                const position = new kakao.maps.LatLng(place.y, place.x);
+
+                // 가장 안정적인 카카오 기본 마커 생성 (물음표 문제 없음)
+                const marker = new kakao.maps.Marker({
+                    position: position,
+                    map: map
+                });
+                markers.push(marker);
+
+                bounds.extend(position);
+
+                // 리스트 아이템 생성
+                const itemEl = document.createElement('div');
+                itemEl.className = 'p-4 hover:bg-slate-50 cursor-pointer transition border-b border-slate-100 group';
+                itemEl.innerHTML = `
+                    <h5 class="font-bold text-slate-800 text-sm group-hover:text-indigo-600 transition">${place.place_name}</h5>
+                    <p class="text-xs text-slate-500 mt-1">📍 ${place.road_address_name || place.address_name}</p>
+                    ${place.phone ? `<p class="text-xs text-indigo-500 mt-1 font-medium">📞 ${place.phone}</p>` : ''}
+                `;
+
+                // 마커 및 리스트 클릭 이벤트 연동
+                kakao.maps.event.addListener(marker, 'click', function() {
+                    map.setCenter(position);
+                    displayInfowindow(marker, place);
+                });
+
+                itemEl.addEventListener('click', function() {
+                    map.setCenter(position);
+                    displayInfowindow(marker, place);
+                });
+
+                listEl.appendChild(itemEl);
+            });
+
+            map.setBounds(bounds);
+        }
+
+        // 기존 마커 모두 제거
+        function removeMarkers() {
+            for (let i = 0; i < markers.length; i++) {
+                markers[i].setMap(null);
+            }
+            markers = [];
+        }
+
+        // 상세 정보 인포윈도우 팝업
+        function displayInfowindow(marker, place) {
+            const content = `
+                <div style="padding:12px;font-size:12px;width:210px;z-index:1;font-family:sans-serif;">
+                    <strong style="font-size:14px;color:#1e293b;display:block;margin-bottom:4px;">${place.place_name}</strong>
+                    <span style="color:#64748b;display:block;line-height:1.4;margin-bottom:6px;">${place.road_address_name || place.address_name}</span>
+                    ${place.phone ? `<span style="color:#4f46e5;display:block;margin-bottom:6px;font-weight:600;">📞 ${place.phone}</span>` : ''}
+                    <a href="${place.place_url}" target="_blank" style="color:#ffffff;background:#4f46e5;padding:5px 10px;border-radius:6px;display:inline-block;text-decoration:none;font-weight:bold;font-size:11px;">카카오맵 상세 보기 ↗</a>
+                </div>
+            `;
+            infowindow.setContent(content);
+            infowindow.open(map, marker);
+        }
+
+        // 로드뷰 연동
+        function openRoadview() {
+            const center = map.getCenter();
+            const rvUrl = `https://map.kakao.com/?roadview=true&y=${center.getLat()}&x=${center.getLng()}`;
+            window.open(rvUrl, '_blank');
+        }
+    </script>
+</body>
+</html>
